@@ -1,0 +1,147 @@
+var me = scope.getMyPlayerNumber();
+var team = scope.getMyTeamNumber();
+var gold = scope.getGold();
+var time = Math.round(scope.getCurrentGameTimeInSec());
+const myTeam = scope.getMyTeamNumber();
+var eteams = [];
+var mteams = [];
+
+var supply = scope.getCurrentSupply();
+var maxSupply = scope.getMaxSupply();
+var supplyDiff = maxSupply - supply;
+var allPlayers = scope.getArrayOfPlayerNumbers();
+for(var k = 0; k < allPlayers.length; ++k){
+    if(scope.getTeamNumber(allPlayers[k]) === myTeam){
+        mteams.push(allPlayers[k]); // Adds teammates numbers to mteam(my team)
+    }else if(scope.getTeamNumber(allPlayers[k]) !== myTeam){
+        eteams.push(allPlayers[k]); // Adds enemy numbers to eteam
+    }
+}
+var randomNumber = 8;
+var randomUnit = scope.getRandomNumber(1, 3);
+if(time > 300){
+    randomNumber = 12;
+}
+
+var workers = scope.getUnits({type: "Worker", player: me});
+var idleWorkers = scope.getUnits({type: "Worker", player: me, order: "Stop"});
+var miningWorkers = scope.getUnits({type: "Worker", player: me, order: "Mine"});
+var soldiers = scope.getUnits({type: "Soldier", player: me});
+var mages = scope.getUnits({type: "Mage", player: me});
+var archers = scope.getUnits({type: "Archer", player: me});
+var units = scope.getUnits({notOfType: "Worker", player: me, order: "Stop"});
+var enemyUnits = scope.getUnits({notOfType: "Worker", enemyOf: me});
+var Castles = scope.getBuildings({type: "Castle", player: me});
+var Houses = scope.getBuildings({type: "House", player: me});
+var Guilds = scope.getBuildings({type: "Mages Guild", player: me});
+var Towers = scope.getBuildings({type: "Watchtower", player: me});
+var Rax = scope.getBuildings({type: "Barracks", player: me});
+var Mines = scope.getBuildings({type: "Goldmine"});
+var usingMine = [];
+
+var nearestMine = null;
+var neasrestDist = 99999;
+for(var k = 0; k < idleWorkers.length; k++){
+    for(var i = 0; i < Mines.length; i++){
+        var Mine = Mines[i];
+        var dist = Math.pow(Mine.getX() - idleWorkers[k].getX(), 2) + Math.pow(Mine.getY() - idleWorkers[k].getY(), 2);
+        if(dist < neasrestDist){
+            nearestMine = Mine;
+            usingMine.push(nearestMine);
+            neasrestDist = dist;
+        }
+    }    
+}
+scope.order("Mine", idleWorkers, {unit: nearestMine});
+if(Castles.length > 0){
+    for(var l = 0; l < Castles.length; l++){
+         if(!Castles[l].getUnitTypeNameInProductionQueAt(1)){
+            if(workers.length <= 7 * Castles.length){
+                scope.order("Train Worker", [Castles[l]]);
+            }
+        }
+        var nearestcMine = null;
+        var neasrestDist = 99999;
+        for(var i = 0; i < Mines.length; i++){
+            var Mine = Mines[i];
+            var dist = Math.pow(Mine.getX() - Castles[l].getX(), 2) + Math.pow(Mine.getY() - Castles[l].getY(), 2);
+            if(dist < neasrestDist){
+                nearestcMine = Mine;
+                neasrestDist = dist;
+            }    
+        }
+        scope.order("Moveto", [Castles[l]], {unit:nearestcMine});
+        scope.order("Research Fireball", Guilds);
+        var buildlocation3x3x = Castles[l].getX() - scope.getRandomNumber(-randomNumber, randomNumber);
+        var buildlocation3x3y = Castles[l].getY() - scope.getRandomNumber(-randomNumber, randomNumber);
+        var spotfound3 = 0;
+        if(spotfound3 === 0){
+            for(let x=-1; x<=2; ++x){
+                for(let y=-1; y<=2; ++y){
+                    if(scope.positionIsPathable(buildlocation3x3x + x, buildlocation3x3y + y)){
+                        if(scope.getHeightLevel(buildlocation3x3x+x, buildlocation3x3y+y) === scope.getHeightLevel(buildlocation3x3x, buildlocation3x3y)){
+                            var spotfound3 = 1;
+                        }
+                    }
+                }
+            }
+        }
+        if(supplyDiff <= 3){
+            if(spotfound3 === 1){
+                scope.order("Build House", miningWorkers, {x: buildlocation3x3x, y: buildlocation3x3y});
+            }
+        }
+        if(Houses.length > 0){
+            if(Rax.length <=1){
+                if(spotfound3 === 1){
+                    scope.order("Build Barracks", miningWorkers, {x: buildlocation3x3x, y: buildlocation3x3y});
+                }
+            }else if(Rax.length >= 1){
+                if(Guilds.length <= 0){
+                    scope.order("Build Mages Guild", miningWorkers, {x: buildlocation3x3x, y: buildlocation3x3y});
+                }
+            }
+        }
+        for(var r = 0; r < Rax.length; r++){
+            if(supplyDiff > 2){
+                if(!Rax[r].getUnitTypeNameInProductionQueAt(1)){
+                    if(randomUnit === 1){
+                        if(soldiers.length<10){
+                            scope.order("Train Soldier", [Rax[r]]);
+                        }
+                    }else if(randomUnit === 2){
+                        if(archers.length<10){
+                            scope.order("Train Archer", [Rax[r]]);
+                        }
+                    }else if(randomUnit === 3){
+                        if(Guilds.length > 0){
+                            scope.order("Train Mage", [Rax[r]]);
+                        }
+                    }
+                }
+            }else if(supplyDiff < 2){
+                scope.order("Cancel", Rax[r]);
+            }
+        }
+    }
+}
+var mined = [];
+for(var i = 0; i < Mines.length; i++) {
+    var Mine = Mines[i];
+    if (Mine.getValue('gold') < 5900) {
+        mined.push(Mine);
+    }
+}
+
+if (time >= 540){
+    if(mined.length > 0){
+        var randomIndex = scope.getRandomNumber(0, mined.length - 1);
+        var randomMine = mined[randomIndex];
+        scope.order("AMove", units, {x: randomMine.getX(), y: randomMine.getY()});
+        if(enemyUnits.length < 14){
+            scope.order("Slow Field", mages, scope.getCenterOfUnits(enemyUnits));
+        }else if(enemyUnits.length >= 14){
+            scope.order("Fireball", mages, scope.getCenterOfUnits(enemyUnits));
+        }
+    }
+}
